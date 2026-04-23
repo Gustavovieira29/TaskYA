@@ -3,3 +3,15 @@ dist/
 .env
 .DS_Store
 *.log
+
+# Python files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.venv/
+venv/
+ENV/
+.envrc
+.Python

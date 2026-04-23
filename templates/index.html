@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gerenciador de Tarefas</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="page-container">
+      <header>
+        <h1>Gerenciador de Tarefas</h1>
+        <p>Adicione, atualize e acompanhe suas tarefas em Python.</p>
+      </header>
+
+      <section class="stats-grid">
+        <article>
+          <strong>{{ stats.total }}</strong>
+          <span>Total de tarefas</span>
+        </article>
+        <article>
+          <strong>{{ stats.completed }}</strong>
+          <span>Concluídas</span>
+        </article>
+        <article>
+          <strong>{{ stats.pending }}</strong>
+          <span>Pendentes</span>
+        </article>
+      </section>
+
+      <section class="main-grid">
+        <div class="panel panel-form">
+          <h2>Adicionar nova tarefa</h2>
+          <form action="/add" method="post" class="task-form">
+            <label>
+              Título
+              <input type="text" name="title" placeholder="Reunião com cliente" required />
+            </label>
+            <label>
+              Descrição
+              <textarea name="description" placeholder="Detalhes da tarefa"></textarea>
+            </label>
+            <label>
+              Data
+              <input type="date" name="date" value="{{ selected_date.isoformat() if selected_date else "" }}" />
+            </label>
+            <button type="submit">Adicionar tarefa</button>
+          </form>
+        </div>
+
+        <div class="panel panel-tasks">
+          <div class="panel-header">
+            <h2>Suas tarefas</h2>
+            <form method="get" class="filter-form">
+              <label>
+                Filtrar
+                <select name="filter" onchange="this.form.submit()">
+                  <option value="all" {{ "selected" if filter_status == "all" else "" }}>Todas</option>
+                  <option value="pending" {{ "selected" if filter_status == "pending" else "" }}>Pendentes</option>
+                  <option value="completed" {{ "selected" if filter_status == "completed" else "" }}>Concluídas</option>
+                </select>
+              </label>
+              <label>
+                Dia
+                <input type="date" name="selected_date" value="{{ selected_date.isoformat() if selected_date else "" }}" />
+              </label>
+              <button type="submit">Aplicar</button>
+            </form>
+          </div>
+
+          {% if tasks %}
+          <div class="task-list">
+            {% for task in tasks %}
+            <article class="task-card {{ 'completed' if task.completed else '' }}">
+              <div class="task-main">
+                <form action="/toggle/{{ task.id }}" method="post" class="inline-form">
+                  <button type="submit" class="toggle-button">{{ '✓' if task.completed else '○' }}</button>
+                </form>
+                <div>
+                  <strong>{{ task.title }}</strong>
+                  <p>{{ task.description }}</p>
+                  <span class="task-date">{{ task.date }}</span>
+                </div>
+              </div>
+
+              <div class="task-actions">
+                {% if edit_id == task.id %}
+                <form action="/update/{{ task.id }}" method="post" class="edit-form">
+                  <input type="text" name="title" value="{{ task.title }}" required />
+                  <textarea name="description">{{ task.description }}</textarea>
+                  <div class="edit-actions">
+                    <button type="submit">Salvar</button>
+                    <a class="button cancel" href="{{ url_for('index', filter=filter_status, selected_date=selected_date.isoformat() if selected_date else '') }}">Cancelar</a>
+                  </div>
+                </form>
+                {% else %}
+                <div class="task-buttons">
+                  <a class="button" href="{{ url_for('index', filter=filter_status, selected_date=selected_date.isoformat() if selected_date else '', edit_id=task.id) }}">Editar</a>
+                  <form action="/delete/{{ task.id }}" method="post">
+                    <button type="submit" class="button danger">Excluir</button>
+                  </form>
+                </div>
+                {% endif %}
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="empty-state">Nenhuma tarefa encontrada. Adicione sua primeira tarefa.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      {% if selected_date %}
+      <section class="panel panel-calendar">
+        <h2>Tarefas para {{ selected_date.strftime('%d/%m/%Y') }}</h2>
+        {% if selected_date_tasks %}
+        <ul>
+          {% for task in selected_date_tasks %}
+          <li>
+            <strong>{{ task.title }}</strong>
+            <span>{{ 'Concluída' if task.completed else 'Pendente' }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>Nenhuma tarefa para esta data.</p>
+        {% endif %}
+      </section>
+      {% endif %}
+    </div>
+  </body>
+</html>

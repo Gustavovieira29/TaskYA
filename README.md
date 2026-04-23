@@ -1,9 +1,30 @@
 # Gerenciador de Tarefas Pessoal
 
-This is a code bundle for Gerenciador de Tarefas Pessoal. The original project is available at https://www.figma.com/design/5GYNHwpGCP9jUOOuOuFdTA/Gerenciador-de-Tarefas-Pessoal.
+Esta versão do projeto foi convertida para Python usando Flask.
 
-## Running the code
+## Executar o projeto
 
-Run `npm i` to install the dependencies.
+1. Instale as dependências:
 
-Run `npm run dev` to start the development server.
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Execute o servidor:
+
+   ```bash
+   python app.py
+   ```
+
+3. Abra no navegador:
+
+   ```text
+   http://127.0.0.1:5000
+   ```
+
+## Como funciona
+
+- Adicione tarefas com título, descrição e data.
+- Marque como concluída ou exclua tarefas.
+- Filtre por todas, pendentes ou concluídas.
+- Veja as tarefas de uma data específica.
