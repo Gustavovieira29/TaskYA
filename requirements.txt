@@ -1,1 +1,3 @@
 Flask>=2.3
+google-generativeai>=0.13.0
+python-dotenv>=1.0
