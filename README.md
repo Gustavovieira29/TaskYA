@@ -1,11 +1,9 @@
+# Gerenciador de Tarefas Pessoal
 
-  # Gerenciador de Tarefas Pessoal
+This is a code bundle for Gerenciador de Tarefas Pessoal. The original project is available at https://www.figma.com/design/5GYNHwpGCP9jUOOuOuFdTA/Gerenciador-de-Tarefas-Pessoal.
 
-  This is a code bundle for Gerenciador de Tarefas Pessoal. The original project is available at https://www.figma.com/design/5GYNHwpGCP9jUOOuOuFdTA/Gerenciador-de-Tarefas-Pessoal.
+## Running the code
 
-  ## Running the code
+Run `npm i` to install the dependencies.
 
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+Run `npm run dev` to start the development server.
