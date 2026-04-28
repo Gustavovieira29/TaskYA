@@ -31,13 +31,25 @@ Esta versão do projeto foi convertida para Python usando Flask.
 
 ## Validação da API Gemini
 
-1. Crie uma chave de API Gemini na sua conta Google Cloud / Gemini.
-2. Copie `.env.example` para `.env` e defina `GEMINI_API_KEY`.
-3. Execute:
+1. **Obtenha uma chave API Gemini:**
+   - Acesse [Google AI Studio](https://aistudio.google.com/)
+   - Faça login com sua conta Google
+   - Vá em "API Keys" no menu lateral
+   - Clique em "Create API Key"
+   - Copie a chave gerada
 
+2. **Configure o ambiente:**
+   - Copie `.env.example` para `.env`
+   - Cole sua chave real: `GEMINI_API_KEY=sua_chave_aqui`
+
+3. **Teste a conexão:**
    ```bash
    pip install -r requirements.txt
    python gemini_check.py
    ```
 
-O script fará uma chamada simples ao modelo Gemini e exibirá a resposta retornada.
+   **Resultado esperado:** Deve mostrar uma resposta do modelo Gemini confirmando a comunicação.
+
+   **Se der erro de chave inválida:** Verifique se copiou a chave completa e corretamente no arquivo `.env`.
+
+**Nota:** O script usa a biblioteca `google-genai` e o módulo `google.genai`.

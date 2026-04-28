@@ -15,55 +15,54 @@ def load_env_file() -> None:
         print("Arquivo .env carregado.")
 
 
-def get_response_text(response: object) -> str:
-    if response is None:
-        return "Resposta vazia da API."
-    if hasattr(response, "text"):
-        return response.text
-    if hasattr(response, "candidates") and response.candidates:
-        candidate = response.candidates[0]
-        return getattr(candidate, "content", repr(candidate))
-    return repr(response)
-
-
 def main() -> None:
     load_env_file()
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("Erro: a variável de ambiente GEMINI_API_KEY não foi encontrada.")
-        print("Defina a chave no .env ou no ambiente antes de executar o script.")
-        print("Exemplo no PowerShell:")
+        print("Erro: GEMINI_API_KEY não encontrada.")
+        print("Defina no .env ou no ambiente.")
+        print("Exemplo PowerShell:")
         print("  $env:GEMINI_API_KEY='sua_chave_aqui'")
         sys.exit(1)
 
     try:
-        from google.ai import generativeai as genai
+        from google import genai
     except ImportError:
-        print("Erro: biblioteca google-generativeai não encontrada.")
-        print("Instale com: pip install -r requirements.txt")
+        print("Erro: biblioteca google-genai não instalada.")
+        print("Instale com: pip install google-genai")
         sys.exit(1)
 
-    model = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
-    prompt = "Verifique a comunicação com a API Gemini e responda apenas OK junto com o nome do modelo."
-
-    genai.configure(api_key=api_key)
-    print(f"Conectando ao Gemini com o modelo: {model}")
-
     try:
-        response = genai.generate_text(
-            model=model,
-            prompt=prompt,
-            max_output_tokens=60,
+        client = genai.Client(api_key=api_key)
+
+        default_model = "gemini-1.5-flash"
+        env_model = os.getenv("GEMINI_MODEL", "").strip()
+        if not env_model:
+            model_name = default_model
+        elif env_model == "gemini-1.5-pro":
+            print(
+                "Atenção: o modelo gemini-1.5-pro não é suportado pelo método generate_content "
+                "nesta versão da API. Usando gemini-1.5-flash em seu lugar."
+            )
+            model_name = default_model
+        else:
+            model_name = env_model
+
+        print(f"Conectando ao Gemini com o modelo: {model_name}")
+
+        response = client.models.generate_content(
+            model=model_name,
+            contents="Responda apenas: OK + nome do modelo"
         )
+
     except Exception as exc:
-        print("Erro ao chamar a API Gemini:")
+        print("\nErro ao chamar a API Gemini:")
         print(exc)
         sys.exit(1)
 
-    text = get_response_text(response)
     print("\n--- Resposta do Gemini ---")
-    print(text.strip())
+    print(response.text.strip())
     print("--------------------------")
 
 
