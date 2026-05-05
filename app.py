@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 
 from flask import Flask, redirect, render_template, request, url_for
 from database import db, Task
+from audit_log import log_create, log_update, log_delete, log_toggle, log_error
 
 app = Flask(__name__)
 
@@ -88,8 +89,18 @@ def add_task():
     description = request.form.get("description", "").strip()
     task_date = request.form.get("date", date.today().isoformat())
 
+    # Validações
     if not title:
+        log_error("ADD_TASK", Exception("Título vazio"))
         return redirect(url_for("index"))
+
+    if len(title) > 200:
+        log_error("ADD_TASK", Exception("Título muito longo (máx 200 caracteres)"))
+        title = title[:200]
+
+    if len(description) > 5000:
+        log_error("ADD_TASK", Exception("Descrição muito longa (máx 5000 caracteres)"))
+        description = description[:5000]
 
     try:
         new_task = Task(
@@ -100,8 +111,12 @@ def add_task():
         )
         db.session.add(new_task)
         db.session.commit()
+        
+        # Registrar no log
+        log_create(new_task.id, title, task_date)
+        
     except Exception as e:
-        print(f"Erro ao adicionar tarefa: {e}")
+        log_error("ADD_TASK", e)
         db.session.rollback()
 
     return redirect(url_for("index"))
@@ -113,10 +128,16 @@ def toggle_task(task_id: str):
     try:
         task = Task.query.get(task_id)
         if task:
+            old_status = task.completed
             task.completed = not task.completed
             db.session.commit()
+            
+            # Registrar no log
+            log_toggle(task_id, task.title, task.completed)
+        else:
+            log_error("TOGGLE_TASK", Exception(f"Tarefa não encontrada: {task_id}"))
     except Exception as e:
-        print(f"Erro ao alternar tarefa: {e}")
+        log_error("TOGGLE_TASK", e)
         db.session.rollback()
 
     return redirect(request.referrer or url_for("index"))
@@ -128,10 +149,16 @@ def delete_task(task_id: str):
     try:
         task = Task.query.get(task_id)
         if task:
+            task_title = task.title
             db.session.delete(task)
             db.session.commit()
+            
+            # Registrar no log
+            log_delete(task_id, task_title)
+        else:
+            log_error("DELETE_TASK", Exception(f"Tarefa não encontrada: {task_id}"))
     except Exception as e:
-        print(f"Erro ao deletar tarefa: {e}")
+        log_error("DELETE_TASK", e)
         db.session.rollback()
 
     return redirect(request.referrer or url_for("index"))
@@ -144,16 +171,28 @@ def update_task(task_id: str):
     description = request.form.get("description", "").strip()
 
     if not title:
+        log_error("UPDATE_TASK", Exception("Título vazio"))
         return redirect(url_for("index"))
+
+    if len(title) > 200:
+        title = title[:200]
 
     try:
         task = Task.query.get(task_id)
         if task:
+            # Registrar mudanças no log
+            if task.title != title:
+                log_update(task_id, "title", task.title, title)
+            if task.description != description:
+                log_update(task_id, "description", task.description[:50], description[:50])
+            
             task.title = title
             task.description = description
             db.session.commit()
+        else:
+            log_error("UPDATE_TASK", Exception(f"Tarefa não encontrada: {task_id}"))
     except Exception as e:
-        print(f"Erro ao atualizar tarefa: {e}")
+        log_error("UPDATE_TASK", e)
         db.session.rollback()
 
     return redirect(url_for("index"))
