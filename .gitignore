@@ -25,3 +25,7 @@ ENV/
 
 # Instance folder (contém banco de dados do Flask)
 instance/
+
+# Logs e auditoria
+logs/
+*.log
