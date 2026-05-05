@@ -1,6 +1,6 @@
 # Gerenciador de Tarefas Pessoal
 
-Esta versão do projeto foi convertida para Python usando Flask.
+Esta versão do projeto foi convertida para Python usando Flask com SQLAlchemy e banco de dados SQLite.
 
 ## Executar o projeto
 
@@ -10,13 +10,19 @@ Esta versão do projeto foi convertida para Python usando Flask.
    pip install -r requirements.txt
    ```
 
-2. Execute o servidor:
+2. Inicialize o banco de dados com dados de exemplo:
+
+   ```bash
+   python init_db.py
+   ```
+
+3. Execute o servidor:
 
    ```bash
    python app.py
    ```
 
-3. Abra no navegador:
+4. Abra no navegador:
 
    ```text
    http://127.0.0.1:5000
@@ -28,6 +34,32 @@ Esta versão do projeto foi convertida para Python usando Flask.
 - Marque como concluída ou exclua tarefas.
 - Filtre por todas, pendentes ou concluídas.
 - Veja as tarefas de uma data específica.
+
+## Banco de Dados
+
+- **Sistema**: SQLite
+- **Localização**: `instance/tasks.db`
+- **Backup**: `instance/tasks.db.backup`
+- **ORM**: SQLAlchemy com Flask-SQLAlchemy
+
+### Estrutura do Banco
+
+**Tabela: tasks**
+- `id` - UUID único (chave primária)
+- `title` - Título da tarefa (obrigatório)
+- `description` - Descrição detalhada
+- `date` - Data da tarefa
+- `completed` - Status de conclusão (booleano)
+- `created_at` - Data/hora de criação
+- `updated_at` - Data/hora de última atualização
+
+### Operações do Banco
+
+- ✅ **Criar**: POST /add - Adiciona nova tarefa
+- ✅ **Ler**: GET / - Lista todas as tarefas
+- ✅ **Atualizar**: POST /update/<id> - Atualiza tarefa
+- ✅ **Deletar**: POST /delete/<id> - Remove tarefa
+- ✅ **Toggle**: POST /toggle/<id> - Marca como concluída/pendente
 
 ## Validação da API Gemini
 
