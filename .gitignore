@@ -15,3 +15,13 @@ venv/
 ENV/
 .envrc
 .Python
+
+# Banco de dados
+*.db
+*.sqlite
+*.sqlite3
+*.db.backup
+*.bak
+
+# Instance folder (contém banco de dados do Flask)
+instance/
