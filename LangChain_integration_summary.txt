@@ -1,31 +1,36 @@
-Resumo das alterações para integração do LangChain
+Resumo das alterações para integração com Groq e ajustes no frontend
 
 1. Atualização em app.py
-- Incluído import de `load_dotenv` para carregar variáveis de ambiente.
-- Adicionados imports LangChain:
-  - `LLMChain`
-  - `ChatOpenAI`
-  - `ChatPromptTemplate`
-  - `HumanMessagePromptTemplate`
-- Inserido `load_dotenv()` no início do arquivo para ler a API key do ambiente.
-- Criada a função `generate_task_summary(tasks)` que:
-  - monta uma lista de tarefas em formato de texto;
-  - configura um prompt do LangChain para gerar um resumo das tarefas;
-  - utiliza `ChatOpenAI` com temperatura 0.3;
-  - trata exceções e registra erros com `log_error`.
-- Adicionado novo endpoint `/generate_summary` que:
-  - lê as tarefas do banco;
-  - ordena as tarefas;
-  - chama `generate_task_summary` e retorna o texto como resposta plain text.
+- Mantido `load_dotenv()` para carregar variáveis de ambiente do arquivo `.env`.
+- Substituído o uso do OpenAI pelo Groq via `langchain-groq`:
+  - importado `ChatGroq` em vez de `ChatOpenAI`.
+  - usado `ChatPromptTemplate` e `HumanMessagePromptTemplate` do `langchain_core`.
+- Ajustado `generate_task_summary(tasks)` para:
+  - montar o texto das tarefas como uma lista de bullet points;
+  - criar prompt que pede o resumo em até 5 frases;
+  - inicializar `ChatGroq` com `api_key=os.getenv('GROQ_API_KEY')`, `model=os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')` e `temperature=0.3`;
+  - chamar a chain com `prompt | llm` e `invoke({'tasks': task_text})` para obter a resposta;
+  - tratar exceções e registrar erro em `log_error("LANGCHAIN_SUMMARY", e)`.
+- O endpoint `/generate_summary` continua:
+  - lendo tarefas do banco;
+  - ordenando por data;
+  - retornando o resumo em plain text.
 
 2. Atualização em requirements.txt
-- Adicionada a dependência `langchain>=0.0.375`.
+- Adicionada a dependência `langchain-groq>=0.0.1`.
+- Mantidas dependências de `langchain>=0.0.375` e `python-dotenv`.
 
 3. Atualização em templates/index.html
-- Incluído um painel de resumo com LangChain.
-- Adicionado botão `Gerar resumo com LangChain`.
-- Adicionado `JavaScript` para chamar `/generate_summary` via `fetch` e exibir o resultado na página.
+- O painel de resumo passou a ser um bloco dedicado com espaço próprio.
+- O botão foi simplificado para `Gerar resumo`.
+- O resultado agora aparece em uma caixa fixa (`<div id="summary-result" class="summary-result">`) em vez de um `<pre>` invisível.
+- O JavaScript atualiza o texto do painel sem recarregar a página.
+
+4. Atualização em static/style.css
+- Adicionados estilos para `.panel-summary` e `.summary-result`.
+- Panel agora tem altura mínima e aparência de bloco de conteúdo separado.
+- Resultado do resumo recebeu padding, borda e quebra de linha automática.
 
 Observações
-- A integração depende de chaves de API OpenAI corretamente configuradas no ambiente.
-- O endpoint e o interface foram adicionados para demonstrar o uso básico do LangChain na aplicação.
+- A integração agora usa a API de Groq configurada pelo `.env` com `GROQ_API_KEY` e `GROQ_MODEL`.
+- O frontend foi melhorado para deixar a área de resumo mais clara e centralizada na interface.
