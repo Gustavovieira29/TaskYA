@@ -72,6 +72,30 @@ header p {
   padding: 20px;
 }
 
+.panel-summary {
+  min-height: 220px;
+  margin-bottom: 24px;
+}
+
+.panel-summary p {
+  margin-bottom: 18px;
+}
+
+.summary-controls {
+  margin-bottom: 16px;
+}
+
+.summary-result {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  min-height: 140px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  color: var(--text);
+}
+
 .panel-form h2,
 .panel-tasks h2,
 .panel-calendar h2 {

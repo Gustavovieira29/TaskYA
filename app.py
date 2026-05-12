@@ -1,9 +1,17 @@
 from datetime import date, datetime
 from typing import Any, Dict, List
+import os
 
+from dotenv import load_dotenv
 from flask import Flask, redirect, render_template, request, url_for
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+
 from database import db, Task
 from audit_log import log_create, log_update, log_delete, log_toggle, log_error
+
+# LangChain: carrega variáveis de ambiente e habilita o uso do Groq através do framework
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -22,6 +30,7 @@ with app.app_context():
 def read_tasks() -> List[Dict[str, Any]]:
     """Lê todas as tarefas do banco de dados."""
     tasks = Task.query.all()
+    print(f"read_tasks: found {len(tasks)} tasks")
     return [task.to_dict() for task in tasks]
 
 
@@ -45,6 +54,33 @@ def parse_date(value: str) -> date:
         return date.fromisoformat(value)
     except ValueError:
         return date.today()
+
+
+def generate_task_summary(tasks: List[Dict[str, Any]]) -> str:
+    """Gera um resumo das tarefas usando LangChain."""
+    if not tasks:
+        return "Nenhuma tarefa disponível para gerar resumo."
+
+    try:
+        llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            temperature=0.3
+        )
+        prompt = ChatPromptTemplate.from_messages([
+            HumanMessagePromptTemplate.from_template(
+                "Resuma estas tarefas em até 5 frases, destacando pendências importantes:\n\n{tasks}"
+            )
+        ])
+        chain = prompt | llm
+        task_text = "\n".join(
+            f"- [{'x' if task['completed'] else ' '}] {task['title']} ({task['date']}): {task['description'] or 'sem descrição'}"
+            for task in tasks
+        )
+        return chain.invoke({"tasks": task_text}).content.strip()
+    except Exception as e:
+        log_error("LANGCHAIN_SUMMARY", e)
+        return f"Erro ao gerar resumo: {str(e)}"
 
 
 @app.route("/")
@@ -80,6 +116,16 @@ def index():
         selected_date_tasks=selected_date_tasks,
         edit_id=edit_id,
     )
+
+
+@app.route("/generate_summary")
+def generate_summary():
+    """Endpoint simples para gerar um resumo de tarefas via LangChain."""
+    tasks = read_tasks()
+    sorted_tasks = get_sorted_tasks(tasks)
+    print(f"Route: tasks count: {len(sorted_tasks)}")
+    summary = generate_task_summary(sorted_tasks)
+    return summary, 200, {"Content-Type": "text/plain; charset=utf-8"}
 
 
 @app.route("/add", methods=["POST"])

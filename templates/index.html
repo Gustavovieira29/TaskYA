@@ -28,6 +28,17 @@
         </article>
       </section>
 
+      <section class="panel panel-summary">
+        <h2>Resumo inteligente de tarefas</h2>
+        <p>Use Groq para gerar um resumo curto das tarefas atuais.</p>
+        <div class="summary-controls">
+          <button id="generate-summary-button">Gerar resumo</button>
+        </div>
+        <div id="summary-result" class="summary-result">
+          Clique em “Gerar resumo” para ver a visão geral das tarefas aqui.
+        </div>
+      </section>
+
       <section class="main-grid">
         <div class="panel panel-form">
           <h2>Adicionar nova tarefa</h2>
@@ -129,5 +140,29 @@
       </section>
       {% endif %}
     </div>
+
+    <script>
+      const button = document.getElementById('generate-summary-button');
+      const result = document.getElementById('summary-result');
+
+      if (button) {
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          button.textContent = 'Gerando resumo...';
+          result.textContent = 'Carregando resumo...';
+
+          try {
+            const response = await fetch('/generate_summary');
+            const text = await response.text();
+            result.textContent = text;
+          } catch (error) {
+            result.textContent = 'Erro ao gerar resumo. Verifique a conexão ou a API.';
+          } finally {
+            button.disabled = false;
+            button.textContent = 'Gerar resumo';
+          }
+        });
+      }
+    </script>
   </body>
 </html>
