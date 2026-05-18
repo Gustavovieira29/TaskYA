@@ -1,0 +1,53 @@
+# Arquivo de configuração para Engenharia de Prompts
+# Copie este arquivo para .env e preencha as variáveis
+
+# ============= CONFIGURAÇÃO DO GROQ =============
+# Groq é otimizada para código e programação
+# Obtenha a chave em: https://console.groq.com/keys
+
+GROQ_API_KEY=sua_chave_groq_aqui
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# ============= CONFIGURAÇÃO DO OPENAI =============
+# OpenAI é excelente para texto criativo e análise
+# Obtenha a chave em: https://platform.openai.com/account/api-keys
+
+OPENAI_API_KEY=sua_chave_openai_aqui
+OPENAI_MODEL=gpt-4o-mini
+
+# ============= BANCO DE DADOS =============
+DATABASE_URL=sqlite:///tasks.db
+SQLALCHEMY_TRACK_MODIFICATIONS=False
+
+# ============= LOGGING =============
+LOG_LEVEL=INFO
+
+# ============= LIMITES DE RATE LIMITING =============
+MIN_TIME_BETWEEN_REQUESTS=10
+MAX_PROMPT_LENGTH=5000
+
+# ============= MODOS PADRÃO =============
+# Modo padrão para novas requisições
+DEFAULT_MODE=technical
+
+# Tipo de prompt padrão
+DEFAULT_PROMPT_TYPE=structured
+
+# ============= FEATURES =============
+# Ativar/desativar proteções de segurança
+ENABLE_SECURITY_CHECKS=True
+ENABLE_INJECTION_DETECTION=True
+
+# Ativar/desativar auto-detecção de modo
+ENABLE_AUTO_MODE_DETECTION=True
+
+# Ativar/desativar comparação de provedores
+ENABLE_PROVIDER_COMPARISON=True
+
+# ============= CACHE =============
+CACHE_RESPONSES=True
+CACHE_DURATION_SECONDS=3600
+
+# ============= MONITORAMENTO =============
+TRACK_METRICS=True
+TRACK_HISTORY_LIMIT=1000

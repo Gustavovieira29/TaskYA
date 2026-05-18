@@ -1,14 +1,20 @@
 from datetime import date, datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import os
+import json
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, url_for, jsonify
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 
 from database import db, Task
 from audit_log import log_create, log_update, log_delete, log_toggle, log_error
+from prompt_engine import get_prompt_engine, PromptRequest
+from prompt_modes import AIMode, AIModesConfig
+from prompt_types import PromptType, PromptContext
+from prompt_security import validate_and_sanitize_prompt, PromptSecurityValidator
+from dual_api_manager import APIProvider
 
 # LangChain: carrega variáveis de ambiente e habilita o uso do Groq através do framework
 load_dotenv()
@@ -25,6 +31,9 @@ db.init_app(app)
 # Criar as tabelas se não existirem
 with app.app_context():
     db.create_all()
+
+# Inicializar motor de prompts
+prompt_engine = get_prompt_engine()
 
 
 def read_tasks() -> List[Dict[str, Any]]:
@@ -56,30 +65,40 @@ def parse_date(value: str) -> date:
         return date.today()
 
 
-def generate_task_summary(tasks: List[Dict[str, Any]]) -> str:
-    """Gera um resumo das tarefas usando LangChain."""
+def generate_task_summary(tasks: List[Dict[str, Any]], mode: Optional[str] = None) -> str:
+    """Gera um resumo das tarefas usando o novo motor de prompts."""
     if not tasks:
         return "Nenhuma tarefa disponível para gerar resumo."
 
     try:
-        llm = ChatGroq(
-            api_key=os.getenv("GROQ_API_KEY"),
-            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            temperature=0.3
-        )
-        prompt = ChatPromptTemplate.from_messages([
-            HumanMessagePromptTemplate.from_template(
-                "Resuma estas tarefas em até 5 frases, destacando pendências importantes:\n\n{tasks}"
-            )
-        ])
-        chain = prompt | llm
+        # Preparar texto das tarefas
         task_text = "\n".join(
             f"- [{'x' if task['completed'] else ' '}] {task['title']} ({task['date']}): {task['description'] or 'sem descrição'}"
             for task in tasks
         )
-        return chain.invoke({"tasks": task_text}).content.strip()
+
+        # Criar requisição
+        user_message = f"Resuma estas tarefas em até 5 frases, destacando pendências importantes:\n\n{task_text}"
+        
+        # Selecionar modo
+        ai_mode = AIMode.SUMMARIZED  # Padrão para resumos
+        if mode:
+            mode_obj = AIModesConfig.get_mode_by_name(mode)
+            if mode_obj:
+                ai_mode = mode_obj
+        
+        request_obj = PromptRequest(
+            user_message=user_message,
+            mode=ai_mode,
+            prompt_type=PromptType.STRUCTURED,
+            context={"output_format": "Resumo em 5 frases máximo"}
+        )
+
+        # Processar
+        response = prompt_engine.process_request(request_obj)
+        return response.response_text
     except Exception as e:
-        log_error("LANGCHAIN_SUMMARY", e)
+        log_error("PROMPT_ENGINE_SUMMARY", e)
         return f"Erro ao gerar resumo: {str(e)}"
 
 
@@ -126,6 +145,213 @@ def generate_summary():
     print(f"Route: tasks count: {len(sorted_tasks)}")
     summary = generate_task_summary(sorted_tasks)
     return summary, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+# ============= NOVOS ENDPOINTS - MOTOR DE PROMPTS =============
+
+@app.route("/api/prompt/modes")
+def get_ai_modes():
+    """Retorna modos de IA disponíveis."""
+    modes = AIModesConfig.get_all_modes()
+    return jsonify({
+        "modes": {
+            mode_name: {
+                "name": config.name,
+                "description": config.description,
+                "tone": config.tone,
+                "focus": config.context_focus
+            }
+            for mode_name, config in modes.items()
+        }
+    })
+
+
+@app.route("/api/prompt/analyze", methods=["POST"])
+def analyze_prompt():
+    """Analisa um prompt antes de processar."""
+    data = request.get_json()
+    user_message = data.get("message", "")
+
+    if not user_message:
+        return jsonify({"error": "Mensagem não fornecida"}), 400
+
+    analysis = prompt_engine.analyze_request(user_message)
+    return jsonify(analysis)
+
+
+@app.route("/api/prompt/security-check", methods=["POST"])
+def security_check():
+    """Verifica segurança de um prompt."""
+    data = request.get_json()
+    user_message = data.get("message", "")
+
+    if not user_message:
+        return jsonify({"error": "Mensagem não fornecida"}), 400
+
+    is_approved, clean_prompt, security_details = validate_and_sanitize_prompt(
+        user_message, strict=True
+    )
+
+    return jsonify({
+        "approved": is_approved,
+        "clean_prompt": clean_prompt if is_approved else None,
+        "security_score": PromptSecurityValidator.get_security_score(user_message),
+        "threats": security_details
+    })
+
+
+@app.route("/api/prompt/process", methods=["POST"])
+def process_prompt():
+    """Processa um prompt com modo e tipo especificados."""
+    data = request.get_json()
+    user_message = data.get("message", "")
+    mode = data.get("mode", "technical")
+    prompt_type = data.get("prompt_type", "structured")
+    provider = data.get("provider")
+
+    if not user_message:
+        return jsonify({"error": "Mensagem não fornecida"}), 400
+
+    try:
+        # Validar modo
+        ai_mode = AIModesConfig.get_mode_by_name(mode) or AIMode.TECHNICAL
+        
+        # Validar tipo
+        try:
+            ptype = PromptType[prompt_type.upper()]
+        except KeyError:
+            ptype = PromptType.STRUCTURED
+
+        # Validar provider
+        preferred_provider = None
+        if provider:
+            try:
+                preferred_provider = APIProvider[provider.upper()]
+            except KeyError:
+                pass
+
+        # Criar requisição
+        request_obj = PromptRequest(
+            user_message=user_message,
+            mode=ai_mode,
+            prompt_type=ptype,
+            preferred_provider=preferred_provider,
+            context=data.get("context", {})
+        )
+
+        # Processar
+        response = prompt_engine.process_request(request_obj)
+
+        return jsonify({
+            "success": response.metrics.success,
+            "request_id": response.request_id,
+            "response": response.response_text,
+            "mode": response.mode.value,
+            "metrics": response.metrics.to_dict(),
+            "security_info": response.security_info
+        })
+
+    except Exception as e:
+        log_error("PROCESS_PROMPT", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/prompt/compare", methods=["POST"])
+def compare_providers():
+    """Compara respostas de diferentes provedores."""
+    data = request.get_json()
+    user_message = data.get("message", "")
+    mode = data.get("mode", "technical")
+    prompt_type = data.get("prompt_type", "structured")
+
+    if not user_message:
+        return jsonify({"error": "Mensagem não fornecida"}), 400
+
+    try:
+        # Validar modo
+        ai_mode = AIModesConfig.get_mode_by_name(mode) or AIMode.TECHNICAL
+        
+        # Validar tipo
+        try:
+            ptype = PromptType[prompt_type.upper()]
+        except KeyError:
+            ptype = PromptType.STRUCTURED
+
+        # Criar requisição
+        request_obj = PromptRequest(
+            user_message=user_message,
+            mode=ai_mode,
+            prompt_type=ptype,
+            context=data.get("context", {})
+        )
+
+        # Comparar
+        comparison = prompt_engine.compare_providers(request_obj)
+
+        return jsonify({
+            "comparison": comparison,
+            "request_id": request_obj.request_id
+        })
+
+    except Exception as e:
+        log_error("COMPARE_PROVIDERS", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/prompt/task-summary", methods=["POST"])
+def task_summary_advanced():
+    """Gera resumo de tarefas com modo especificado."""
+    data = request.get_json()
+    mode = data.get("mode", "summarized")
+    
+    tasks = read_tasks()
+    if not tasks:
+        return jsonify({"summary": "Nenhuma tarefa disponível"}), 200
+
+    summary = generate_task_summary(tasks, mode)
+    return jsonify({
+        "summary": summary,
+        "mode": mode,
+        "tasks_count": len(tasks)
+    })
+
+
+@app.route("/api/prompt/stats")
+def prompt_statistics():
+    """Retorna estatísticas de uso do motor de prompts."""
+    stats = prompt_engine.get_statistics()
+    return jsonify(stats)
+
+
+@app.route("/api/prompt/history")
+def prompt_history():
+    """Retorna histórico de requisições e respostas."""
+    limit = request.args.get("limit", default=10, type=int)
+    
+    return jsonify({
+        "requests": prompt_engine.get_request_history(limit),
+        "responses": prompt_engine.get_response_history(limit)
+    })
+
+
+@app.route("/api/prompt/providers")
+def get_providers():
+    """Retorna provedores de API disponíveis."""
+    available = prompt_engine.get_available_providers()
+    return jsonify({
+        "providers": available,
+        "count": len(available)
+    })
+
+
+@app.route("/api/prompt/clear-history", methods=["POST"])
+def clear_prompt_history():
+    """Limpa histórico de prompts."""
+    try:
+        prompt_engine.clear_history()
+        return jsonify({"message": "Histórico limpo com sucesso"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/add", methods=["POST"])
